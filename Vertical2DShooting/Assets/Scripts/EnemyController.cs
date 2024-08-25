@@ -1,117 +1,159 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using Unity.Burst.CompilerServices;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 public class EnemyController : MonoBehaviour
 {
+    public enum EnemyType
+    {
+        A,
+        B,
+        C
+    }
+
+    public EnemyType enemyType;
     public Transform transforms;
     Animator animator;
     float hitTimer;
     bool bCanHit;
+    float fireTimer;
+    bool bCanFire;
     public GameObject explosion;
-    public GameObject bomb;
+    public GameObject[] items;
+    public GameObject bullet;
+
+    public GameObject recentlyHitShooter;
     // Start is called before the first frame update
     void Start()
     {
+        bCanFire = true;
         bCanHit = true;
         animator = GetComponent<Animator>();
-
-        //   Color color = new Color(1, 0, 0, 1);
-        //   reder.color = color;
-        StartCoroutine(CoFade());
         StartCoroutine(CoMove());
-    }
-
-    IEnumerator CoFade()
-    {
-        SpriteRenderer reder = GetComponent<SpriteRenderer>();
-
-        for (float i = 1f; i >= 0; i -= 0.1f)
-        {
-            Color color = new Color(1, 1, 1, i);
-            reder.color = color;
-
-            yield return new WaitForSeconds(1f);
-        }
-
     }
 
     // Update is called once per frame
     void Update()
     {
-       /* if(bCanHit)
-        {
-            transforms.Translate(new Vector3(1f* Time.deltaTime, 1 * Time.deltaTime, 0));
-            transforms.Rotate(new Vector3(0, 0, 0.1f));
-            transform.Rotate(new Vector3(0, 0, -0.1f));
-        }
-
-        if (bCanHit == false && hitTimer > 0f)
-        {
-            hitTimer -= Time.deltaTime;
-            if (hitTimer < 0f)
-            {
-                //bCanHit = true;
-
-                GameObject go = GameObject.Instantiate(explosion);
-                go.transform.position = transform.position;
-
-                int r = Random.Range(1, 5);
-                if(r == 1)
-                {
-                    GameObject bombGo = GameObject.Instantiate(bomb);
-                    bombGo.transform.position = transform.position;
-                }
-                Destroy(gameObject);
-            }
-        }*/
-
-
     }
 
     public IEnumerator CoMove()
     {
-        while (true)
+        if (enemyType != EnemyType.C)
         {
-            if (bCanHit)
+            while (true)
             {
-                transforms.Translate(new Vector3(1f * Time.deltaTime, 1 * Time.deltaTime, 0));
-                transforms.Rotate(new Vector3(0, 0, 0.1f));
-                transform.Rotate(new Vector3(0, 0, -0.1f));
-            }
-
-            if (bCanHit == false && hitTimer > 0f)
-            {
-                hitTimer -= Time.deltaTime;
-                if (hitTimer < 0f)
+                if (enemyType == EnemyType.B)
                 {
-                    //bCanHit = true;
+                    EnemyAttack();
 
-                    GameObject go = GameObject.Instantiate(explosion);
-                    go.transform.position = transform.position;
-
-                    int r = Random.Range(1, 1);
-                    if (r == 1)
-                    {
-                        GameObject bombGo = GameObject.Instantiate(bomb);
-                        bombGo.transform.position = transform.position;
-                    }
-                    Destroy(gameObject);
                 }
+                if (bCanHit)
+                {
+                    transforms.Translate(new Vector3(0, -1f * Time.deltaTime, 0f));
+                    if (transform.position.y < -5f)
+                    {
+                        Destroy(transform.parent.gameObject);
+                    }
+                }
+              
+                if (bCanHit == false && hitTimer > 0f)
+                {
+                    hitTimer -= Time.deltaTime;
+                    if (hitTimer < 0f)
+                    {
+                        bCanHit = true;
+                        Debug.Log("AA");
+                        GameObject go = GameObject.Instantiate(explosion);
+                        go.transform.position = transform.position;
+                        if (recentlyHitShooter != null) recentlyHitShooter.GetComponent<ShooterController>().Score += 500;
+                        int itemR = Random.Range(0, 3);
+                        float r = Random.Range(0f, 100f);
+                        if (r >= 80f)
+                        {
+                            GameObject bombGo = GameObject.Instantiate(items[itemR]);
+                            bombGo.transform.position = new Vector3(transform.position.x, transform.position.y, 0f);
+                        }
+                        Destroy(transform.parent.gameObject);
+                    }
+                }
+                yield return null;
             }
-            yield return null;
         }
-       
+        else
+        {
+            while (true)
+            {
+                if (bCanHit == false && hitTimer > 0f)
+                {
+                    hitTimer -= Time.deltaTime;
+                    if (hitTimer < 0f)
+                    {
+                        bCanHit = true;
+                        animator.SetBool("hit", false);
+
+                    }
+                }
+                yield return null;
+            }
+        }
     }
-    public void Hit()
+
+    public void EnemyAttack()
+    {
+        if (fireTimer > 0f && bCanFire == false)
+        {
+            fireTimer -= Time.deltaTime;
+            if (fireTimer < 0f)
+            {
+                bCanFire = true;
+            }
+        }
+        if (bCanFire)
+        {
+            GameObject targetObject = GameObject.Find("Shooter");
+            if (targetObject != null)
+            {
+                Vector2 dir = (targetObject.transform.position - transform.position).normalized;
+                float len = (targetObject.transform.position - transform.position).magnitude;
+
+                if (len < 6f)
+                {
+                    bCanFire = false;
+                    fireTimer = 2f;
+                    GameObject go = Instantiate(bullet);
+                    go.GetComponent<BulletController>().dir = dir;
+                    go.transform.position = new Vector3(transform.position.x, transform.position.y - 1f, 0f);
+                }
+
+            }
+        }
+    }
+    public void Hit(GameObject b)
     {
         if (bCanHit)
         {
-            StartCoroutine(CoFade());
-            bCanHit = false;
-           // animator.SetBool("hit", true);
-            hitTimer = 0.05f;
+            if (b != null)
+            {
+                recentlyHitShooter = b;
+                bCanHit = false;
+                if (enemyType == EnemyType.C)
+                {
+                    b.GetComponent<ShooterController>().Score += 100;
+                    animator.SetBool("hit", true);
+                }
+                hitTimer = 0.05f;
+            }
+        }
+        else if(enemyType == EnemyType.C)
+        {
+            if (b != null)
+            {
+                b.GetComponent<ShooterController>().Score += 100;
+            }
         }
     }
 }

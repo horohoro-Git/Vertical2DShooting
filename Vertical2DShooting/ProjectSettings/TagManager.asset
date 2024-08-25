@@ -7,6 +7,9 @@ TagManager:
   - enemy
   - enemy1
   - item
+  - NoCollision
+  - ui
+  - EnemyBullet
   layers:
   - Default
   - TransparentFX
@@ -14,9 +17,9 @@ TagManager:
   - Player
   - Water
   - UI
-  - 
-  - 
-  - 
+  - NoCollision
+  - EnemyBullet
+  - Enemy
   - 
   - 
   - 
